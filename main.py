@@ -1,4 +1,5 @@
 from manim import *
+import numpy as np
 
 class ManimCELogo(Scene):
     def construct(self):
@@ -12,8 +13,7 @@ class ManimCELogo(Scene):
         intersection_text = MarkupText("Intersection", font_size=25).next_to(i, UP, buff=1)
         self.play(FadeIn(intersection_text))
 
-from manim import *
-import numpy as np
+
 
 class SolarSystem(MovingCameraScene):
     def construct(self):
@@ -88,4 +88,106 @@ class SolarSystem(MovingCameraScene):
                     orbit_planet[i].point_from_proportion((t.get_value()*speeds[i]) % 1), DOWN
                 )
             )
+        self.play(t.animate.set_value(1), run_time=TIME_SIMULATION, rate_func=linear)
+
+
+import numpy as np
+from manim import *
+
+class BaseScene(MovingCameraScene):
+    def setup(self):
+        super().setup()
+
+        # --- Logo, coin inférieur gauche ---
+        logo = ImageMobject(
+            "/home/nureyni/dev/al-khawarizmi/media/images/logo/LogoAlKhawarizmi_ManimCE_v0.19.0.png"
+        ).scale(0.3)
+        logo.set_opacity(0.85)
+        self._pin_to_corner(logo, DL, buff=0.3)
+        self.add(logo)
+
+        self.hud_logo = logo  # au cas où tu veux y accéder plus tard
+
+    def _pin_to_corner(self, mobject, corner, buff=0.3):
+        """
+        Ajoute un updater qui garde `mobject` collé au coin `corner`
+        du cadre de la caméra (self.camera.frame), même si celle-ci
+        bouge ou zoome.
+        """
+        def updater(m):
+            frame = self.camera.frame
+            target = frame.get_corner(corner)
+            dx = -np.sign(corner[0]) * (m.width / 2 + buff)
+            dy = -np.sign(corner[1]) * (m.height / 2 + buff)
+            m.move_to(target + np.array([dx, dy, 0]))
+        mobject.add_updater(updater)
+
+
+class ComplexPlan(BaseScene):
+    def construct(self):
+        self.add_sound("/home/nureyni/dev/al-khawarizmi/audio/chunks/chunk_004.mp3")
+        TIME_SIMULATION = 20
+        self.camera.frame.set(width=35)
+
+        camera_path = Ellipse(width=4, height=3)
+        t = ValueTracker(0)
+        self.camera.frame.add_updater(
+            lambda cam: cam.move_to(camera_path.point_from_proportion(t.get_value() % 1))
+        )
+
+        axes = NumberPlane(
+            x_range=[-10, 10, 1],
+            y_range=[-10, 10, 1],
+            x_length=20,
+            y_length=20,
+            background_line_style={
+                "stroke_color": BLUE_D,
+                "stroke_width": 1,
+                "stroke_opacity": 0.4,
+            },
+            axis_config={
+                "stroke_color": WHITE,
+                "stroke_width": 2,
+                "include_numbers": True,
+                "font_size": 24,
+            },
+        )
+        labels = axes.get_axis_labels(x_label="\\mathrm{Re}", y_label="\\mathrm{Im}")
+        origin_point = Dot(axes.c2p(0, 0), color=GREEN)
+
+        # --- Formules, coin supérieur gauche, pinnées au cadre ---
+        complex_numbers_notation = MathTex("z = x + iy", font_size=36)
+        transformation_text = MathTex("z \\mapsto z e^{i\\theta}", font_size=36)
+
+        formulas = VGroup(complex_numbers_notation, transformation_text).arrange(DOWN, buff=0.5, aligned_edge=LEFT)
+        self._pin_to_corner(formulas, UL, buff=0.5)
+        self.add(formulas)
+
+        self.play(Create(axes), Write(labels), FadeIn(origin_point))
+
+        # --- Génération de N nombres complexes ---
+        N = 5_000
+        np.random.seed(42)
+        real_parts = np.random.uniform(-8, 8, N)
+        imag_parts = np.random.uniform(-8, 8, N)
+        z0 = real_parts + 1j * imag_parts
+
+        moduli = np.abs(z0)
+        moduli_norm = moduli / moduli.max()
+        colors = [interpolate_color(BLUE, RED, m) for m in moduli_norm]
+
+        dots = VGroup(*[
+            Dot(axes.c2p(z.real, z.imag), radius=0.05, color=colors[i])
+            for i, z in enumerate(z0)
+        ])
+
+        def update_dots(mob):
+            theta = t.get_value() * 2 * PI
+            zt = z0 * np.exp(1j * theta)
+            for dot, z in zip(mob, zt):
+                dot.move_to(axes.c2p(z.real, z.imag))
+
+        dots.add_updater(update_dots)
+        self.add(dots)
+
         self.play(t.animate.set_value(1), run_time=TIME_SIMULATION, rate_func=linear)

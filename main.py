@@ -91,8 +91,6 @@ class SolarSystem(MovingCameraScene):
         self.play(t.animate.set_value(1), run_time=TIME_SIMULATION, rate_func=linear)
 
 
-import numpy as np
-from manim import *
 
 class BaseScene(MovingCameraScene):
     def setup(self):
@@ -191,3 +189,161 @@ class ComplexPlan(BaseScene):
         self.add(dots)
 
         self.play(t.animate.set_value(1), run_time=TIME_SIMULATION, rate_func=linear)
+
+from manim import *  
+import numpy as np
+
+
+class Translation(BaseScene):
+    def construct(self):
+        self.add_sound("/home/nureyni/dev/al-khawarizmi/audio/chunks/chunk_005.mp3")
+
+        TIME_SIMULATION = 10
+        self.camera.frame.set(width=35)
+
+        cam_path = Ellipse(width=4, height=3)
+        t = ValueTracker(0)
+        self.camera.frame.add_updater(
+            lambda cam: cam.move_to(cam_path.point_from_proportion(t.get_value() % 3))
+        )
+
+        axes = NumberPlane(
+            x_range=[-10, 10, 1],
+            y_range=[-10, 10, 1],
+            x_length=20,
+            y_length=20,
+            background_line_style={
+                "stroke_color": BLUE_D,
+                "stroke_width": 1,
+                "stroke_opacity": 0.4,
+            },
+            axis_config={
+                "stroke_color": WHITE,
+                "stroke_width": 2,
+                "include_numbers": True,
+                "font_size": 24,
+            },
+        )
+        self.add(axes)
+
+        # ---------------------------------------------------------
+        # 1) Definition des nombres complexes
+        # ---------------------------------------------------------
+        z = complex(2, 1)      # affixe du point M
+        b = complex(3, 2)      # affixe du vecteur de translation
+        z_prime = z + b        # affixe de M' = image de M par la translation
+
+        def to_point(c):
+            return axes.c2p(c.real, c.imag)
+
+        # ---------------------------------------------------------
+        # 2) Point M et son affixe
+        # ---------------------------------------------------------
+        M = Dot(to_point(z), color=YELLOW, radius=0.12)
+        M_label = Tex("M").next_to(M, DOWN, buff=0.3)
+        z_label = Tex("z = 2 + i").next_to(M, UP, buff=0.3)
+        z_label.set_color(YELLOW)
+
+        self.play(FadeIn(M, scale=0.5), Write(M_label))
+        self.play(Write(z_label))
+        self.wait(1)
+
+        # ---------------------------------------------------------
+        # 3) Titre / formule generale de la translation
+        # ---------------------------------------------------------
+        formule = Tex(r"z' = z + b").to_corner(UL, buff=1)
+        formule.scale(1.5)
+        self.add_fixed_in_frame_mobjects(formule) if hasattr(self, "add_fixed_in_frame_mobjects") else self.add(formule)
+        self.play(Write(formule))
+        self.wait(1)
+
+        # ---------------------------------------------------------
+        # 4) Vecteur de translation b, trace depuis M
+        # ---------------------------------------------------------
+        vecteur_b = Arrow(
+            start=to_point(z),
+            end=to_point(z_prime),
+            buff=0,
+            color=GREEN,
+            stroke_width=6,
+        )
+        b_label = Tex("b = 3 + 2i").set_color(GREEN)
+        b_label.next_to(vecteur_b.get_center(), UP, buff=0.25)
+
+        self.play(GrowArrow(vecteur_b))
+        self.play(Write(b_label))
+        self.wait(1)
+
+        # ---------------------------------------------------------
+        # 5) Apparition du point M' (image de M)
+        # ---------------------------------------------------------
+        M_prime = Dot(to_point(z_prime), color=RED, radius=0.12)
+        M_prime_label = Tex("M'").next_to(M_prime, DOWN, buff=0.3)
+        z_prime_label = Tex("z' = 5 + 3i").next_to(M_prime, UP, buff=0.3)
+        z_prime_label.set_color(RED)
+
+        self.play(
+            TransformFromCopy(M, M_prime),
+            run_time=1.5,
+        )
+        self.play(Write(M_prime_label), Write(z_prime_label))
+        self.wait(1)
+
+        # ---------------------------------------------------------
+        # 6) Insister : meme vecteur b applique a plusieurs points
+        # ---------------------------------------------------------
+        autres_points_z = [complex(-4, 3), complex(-2, -3), complex(4, -2)]
+        autres_points = VGroup()
+        autres_images = VGroup()
+        fleches = VGroup()
+
+        for zc in autres_points_z:
+            p = Dot(to_point(zc), color=YELLOW, radius=0.09)
+            p_img = Dot(to_point(zc + b), color=RED, radius=0.09)
+            fleche = Arrow(
+                start=to_point(zc),
+                end=to_point(zc + b),
+                buff=0,
+                color=GREEN,
+                stroke_width=4,
+                stroke_opacity=0.7,
+            )
+            autres_points.add(p)
+            autres_images.add(p_img)
+            fleches.add(fleche)
+
+        self.play(LaggedStartMap(FadeIn, autres_points, scale=0.5, lag_ratio=0.2))
+        self.wait(0.5)
+        self.play(
+            LaggedStartMap(GrowArrow, fleches, lag_ratio=0.2),
+            run_time=2,
+        )
+        self.play(
+            LaggedStartMap(TransformFromCopy, autres_points,
+                            *[Transform(p.copy(), img) for p, img in zip(autres_points, autres_images)],
+                            lag_ratio=0.2)
+        ) if False else self.play(
+            LaggedStart(*[
+                TransformFromCopy(p, img)
+                for p, img in zip(autres_points, autres_images)
+            ], lag_ratio=0.2),
+            run_time=2,
+        )
+        self.wait(1)
+
+        # ---------------------------------------------------------
+        # 7) Conclusion visuelle : tous les vecteurs sont paralleles
+        #    et de meme longueur -> c'est bien une translation
+        # ---------------------------------------------------------
+        conclusion = Tex(
+            r"\text{Tous les vecteurs } \overrightarrow{MM'} \text{ sont \'egaux au vecteur } b"
+        )
+        conclusion.scale(0.9)
+        conclusion.to_corner(UR, buff=1)
+        conclusion.set_color(GREEN)
+        self.add(conclusion)
+        self.play(Write(conclusion))
+
+        t.set_value(0)
+        self.play(t.animate.set_value(TIME_SIMULATION), run_time=TIME_SIMULATION, rate_func=linear)
+        self.wait(2)
